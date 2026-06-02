@@ -12,7 +12,8 @@ import {
   Plus, 
   Loader2, 
   FileCheck,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from "lucide-react";
 import { Patient } from "../types";
 
@@ -62,9 +63,60 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
   const [voiceField, setVoiceField] = useState<string | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<string>("");
   const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [refiningField, setRefiningField] = useState<"symptomDetails" | "medicationList" | "adminNotes" | null>(null);
+  const [refineError, setRefineError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any | null>(null);
+
+  const handleRefineFieldWithGemini = async (fieldId: "symptomDetails" | "medicationList" | "adminNotes") => {
+    const rawText = 
+      fieldId === "symptomDetails" ? symptomDetails :
+      fieldId === "medicationList" ? medicationList : adminNotes;
+
+    if (!rawText.trim()) {
+      setRefineError("Bitte schreiben oder diktieren Sie zuerst einen Text, den Sie verfeinern möchten.");
+      setTimeout(() => setRefineError(null), 4000);
+      return;
+    }
+
+    setRefiningField(fieldId);
+    setRefineError(null);
+
+    const contextMap = {
+      symptomDetails: "Symptombeschreibung und Verlauf - Notaufnahme",
+      medicationList: "Medikamente / Dauermedikation des Patienten",
+      adminNotes: "Pflegehinweise und administrative Anmerkungen"
+    };
+
+    try {
+      const response = await fetch("/api/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          text: rawText, 
+          context: contextMap[fieldId]
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Fehler beim Verfeinern auf dem Server");
+      }
+
+      const data = await response.json();
+      if (data.text) {
+        if (fieldId === "symptomDetails") setSymptomDetails(data.text);
+        else if (fieldId === "medicationList") setMedicationList(data.text);
+        else setAdminNotes(data.text);
+      }
+    } catch (error: any) {
+      console.error(error);
+      setRefineError("Fehler beim Veredeln: " + error.message);
+      setTimeout(() => setRefineError(null), 5000);
+    } finally {
+      setRefiningField(null);
+    }
+  };
 
   // Computed Checklist tasks representation
   const isNameFilled = lastName.trim() !== "";
@@ -146,7 +198,7 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
       rec.onresult = (event: any) => {
         let finalTrans = "";
         let interimTrans = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTrans += event.results[i][0].transcript + " ";
           } else {
@@ -621,21 +673,40 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
                 placeholder="Genauerer Verlauf, Lokalisation o.ä..."
                 className="w-full min-h-[75px] bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVoiceToggle("symptomDetails")}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition flex items-center gap-1.5 ${
+                      voiceField === "symptomDetails" 
+                        ? "bg-rose-50 border-rose-200 text-rose-700"
+                        : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
+                    }`}
+                  >
+                    {voiceField === "symptomDetails" ? <MicOff className="w-3.5 h-3.5 text-rose-600" /> : <Mic className="w-3.5 h-3.5 text-indigo-500" />}
+                    {voiceField === "symptomDetails" ? "Diktat stoppen" : "Spracheingabe"}
+                  </button>
+                  {voiceField === "symptomDetails" && <span className="text-[10.5px] text-rose-600 font-mono animate-pulse">{voiceStatus}</span>}
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => handleVoiceToggle("symptomDetails")}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition flex items-center gap-1.5 ${
-                    voiceField === "symptomDetails" 
-                      ? "bg-rose-50 border-rose-200 text-rose-700"
-                      : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
-                  }`}
+                  disabled={refiningField !== null || isRecording}
+                  onClick={() => handleRefineFieldWithGemini("symptomDetails")}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold text-xs cursor-pointer transition flex items-center gap-1.5 shadow-xs"
                 >
-                  {voiceField === "symptomDetails" ? <MicOff className="w-3.5 h-3.5 text-rose-600" /> : <Mic className="w-3.5 h-3.5 text-indigo-500" />}
-                  Spracheingabe
+                  {refiningField === "symptomDetails" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
+                  )}
+                  KI verbessern
                 </button>
-                {voiceField === "symptomDetails" && <span className="text-[10.5px] text-rose-600 font-mono animate-pulse">{voiceStatus}</span>}
               </div>
+              {refineError && refiningField === "symptomDetails" && (
+                <div className="text-[11px] text-rose-600 pt-1 font-semibold">{refineError}</div>
+              )}
             </div>
 
           </div>
@@ -698,21 +769,40 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
                 placeholder="Aktuelle Medikamente..."
                 className="w-full min-h-[60px] bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVoiceToggle("medicationList")}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition flex items-center gap-1.5 ${
+                      voiceField === "medicationList" 
+                        ? "bg-rose-50 border-rose-200 text-rose-700"
+                        : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
+                    }`}
+                  >
+                    {voiceField === "medicationList" ? <MicOff className="w-3.5 h-3.5 text-rose-600" /> : <Mic className="w-3.5 h-3.5 text-indigo-500" />}
+                    {voiceField === "medicationList" ? "Diktat stoppen" : "Spracheingabe"}
+                  </button>
+                  {voiceField === "medicationList" && <span className="text-[10.5px] text-rose-600 font-mono animate-pulse">{voiceStatus}</span>}
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => handleVoiceToggle("medicationList")}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition flex items-center gap-1.5 ${
-                    voiceField === "medicationList" 
-                      ? "bg-rose-50 border-rose-200 text-rose-700"
-                      : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
-                  }`}
+                  disabled={refiningField !== null || isRecording}
+                  onClick={() => handleRefineFieldWithGemini("medicationList")}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold text-xs cursor-pointer transition flex items-center gap-1.5 shadow-xs"
                 >
-                  {voiceField === "medicationList" ? <MicOff className="w-3.5 h-3.5 text-rose-600" /> : <Mic className="w-3.5 h-3.5 text-indigo-500" />}
-                  Spracheingabe
+                  {refiningField === "medicationList" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
+                  )}
+                  KI verbessern
                 </button>
-                {voiceField === "medicationList" && <span className="text-[10.5px] text-rose-600 font-mono animate-pulse">{voiceStatus}</span>}
               </div>
+              {refineError && refiningField === "medicationList" && (
+                <div className="text-[11px] text-rose-600 pt-1 font-semibold">{refineError}</div>
+              )}
             </div>
 
             {/* Allergies and lifestyle dropdowns */}
@@ -859,21 +949,40 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
                 placeholder="z.B. Patient ist leicht desorientiert, sturzgefährdet..."
                 className="w-full min-h-[60px] bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVoiceToggle("adminNotes")}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition flex items-center gap-1.5 ${
+                      voiceField === "adminNotes" 
+                        ? "bg-rose-50 border-rose-200 text-rose-700"
+                        : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
+                    }`}
+                  >
+                    {voiceField === "adminNotes" ? <MicOff className="w-3.5 h-3.5 text-rose-600" /> : <Mic className="w-3.5 h-3.5 text-indigo-500" />}
+                    {voiceField === "adminNotes" ? "Diktat stoppen" : "Spracheingabe"}
+                  </button>
+                  {voiceField === "adminNotes" && <span className="text-[10.5px] text-rose-600 font-mono animate-pulse">{voiceStatus}</span>}
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => handleVoiceToggle("adminNotes")}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition flex items-center gap-1.5 ${
-                    voiceField === "adminNotes" 
-                      ? "bg-rose-50 border-rose-200 text-rose-700"
-                      : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
-                  }`}
+                  disabled={refiningField !== null || isRecording}
+                  onClick={() => handleRefineFieldWithGemini("adminNotes")}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold text-xs cursor-pointer transition flex items-center gap-1.5 shadow-xs"
                 >
-                  {voiceField === "adminNotes" ? <MicOff className="w-3.5 h-3.5 text-rose-600" /> : <Mic className="w-3.5 h-3.5 text-indigo-500" />}
-                  Spracheingabe
+                  {refiningField === "adminNotes" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
+                  )}
+                  KI verbessern
                 </button>
-                {voiceField === "adminNotes" && <span className="text-[10.5px] text-rose-600 font-mono animate-pulse">{voiceStatus}</span>}
               </div>
+              {refineError && refiningField === "adminNotes" && (
+                <div className="text-[11px] text-rose-600 pt-1 font-semibold">{refineError}</div>
+              )}
             </div>
           </div>
 

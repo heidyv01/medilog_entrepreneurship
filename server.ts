@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 
@@ -20,6 +21,49 @@ function getGeminiClient(): GoogleGenAI {
     },
   });
   return aiInstance;
+}
+
+// CENTRALIZED METRICS & COLLABORATION ANALYTICS ENGINE
+const STATS_FILE = path.join(process.cwd(), "clicks.json");
+
+interface KpiStats {
+  total: number;
+  demoNavbar: number;
+  pilotHero: number;
+  liveHero: number;
+  dashboardNavbar: number;
+  waitlistSubmits: number;
+  devicePreviewClicks: number;
+}
+
+const defaultStats: KpiStats = {
+  total: 0,
+  demoNavbar: 0,
+  pilotHero: 0,
+  liveHero: 0,
+  dashboardNavbar: 0,
+  waitlistSubmits: 0,
+  devicePreviewClicks: 0
+};
+
+function readStats(): KpiStats {
+  try {
+    if (fs.existsSync(STATS_FILE)) {
+      const content = fs.readFileSync(STATS_FILE, "utf-8");
+      return JSON.parse(content);
+    }
+  } catch (e) {
+    console.error("Error reading stats file:", e);
+  }
+  return { ...defaultStats };
+}
+
+function writeStats(stats: KpiStats) {
+  try {
+    fs.writeFileSync(STATS_FILE, JSON.stringify(stats, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Error writing stats file:", e);
+  }
 }
 
 async function startServer() {
@@ -161,6 +205,54 @@ Formuliertes medizinisches Jargon (gibt nur den ausgearbeiteten Text zurück, ke
     } catch (error: any) {
       console.error("API Error during medical text refining:", error);
       res.status(500).json({ error: "Fehler beim Verfeinern des Diktats: " + error.message });
+    }
+  });
+
+  // API 3: Get Centralized User KPI Metrics (Shared globally across all sessions)
+  app.get("/api/kpi", (req, res) => {
+    try {
+      const stats = readStats();
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API 4: Register specific KPI hit in centralized server store
+  app.post("/api/kpi", (req, res) => {
+    try {
+      const { action } = req.body;
+      const stats = readStats();
+      
+      const validActions: Array<keyof KpiStats> = [
+        "demoNavbar",
+        "pilotHero",
+        "liveHero",
+        "dashboardNavbar",
+        "waitlistSubmits",
+        "devicePreviewClicks"
+      ];
+      
+      if (action && validActions.includes(action)) {
+        stats[action as keyof KpiStats] = (stats[action as keyof KpiStats] || 0) + 1;
+        stats.total = (stats.total || 0) + 1;
+        writeStats(stats);
+        res.json({ success: true, stats });
+      } else {
+        res.status(400).json({ error: `Invalid action type provided: ${action}`, stats });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // API 5: Clear centralized KPI metrics
+  app.post("/api/kpi/reset", (req, res) => {
+    try {
+      writeStats({ ...defaultStats });
+      res.json({ success: true, stats: defaultStats });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

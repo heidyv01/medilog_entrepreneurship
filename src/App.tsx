@@ -24,6 +24,40 @@ export default function App() {
 
   // Settings Modal state
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [sessionStats, setSessionStats] = useState<{
+    total: number;
+    demoNavbar: number;
+    pilotHero: number;
+    liveHero: number;
+    dashboardNavbar: number;
+    waitlistSubmits: number;
+    devicePreviewClicks: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let timer: any = null;
+    
+    const fetchGlobalStats = async () => {
+      try {
+        const response = await fetch("/api/kpi");
+        if (response.ok) {
+          const data = await response.json();
+          setSessionStats(data);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch central stats in App.tsx:", e);
+      }
+    };
+
+    if (showSettings) {
+      fetchGlobalStats();
+      timer = setInterval(fetchGlobalStats, 5000);
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [showSettings]);
 
   // States: Patients Directory
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -461,7 +495,7 @@ export default function App() {
       {/* Settings / Credentials Diagnostic Dialog (Modal Popup) */}
       {showSettings && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-6 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-[480px] p-6 shadow-2xl border border-slate-200 text-left relative flex flex-col">
+          <div className="bg-white rounded-2xl w-full max-w-[500px] p-6 shadow-2xl border border-slate-200 text-left relative flex flex-col max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => setShowSettings(false)}
               className="absolute top-4 right-4 p-1 rounded-lg hover:bg-slate-100 border-0 cursor-pointer text-slate-400 transition"
@@ -471,10 +505,81 @@ export default function App() {
 
             <div className="flex items-center gap-2 pb-3.5 border-b border-slate-200">
               <Heart className="w-5 h-5 text-indigo-600 fill-indigo-50" />
-              <h3 className="text-base font-bold text-slate-900">MediLog credentials & System info</h3>
+              <h3 className="text-base font-bold text-slate-900">MediLog Credentials & Live Analytics</h3>
             </div>
 
             <div className="py-4 space-y-4">
+              {/* LIVE CONVERSION KPI PATH PANEL */}
+              <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4">
+                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Globale KPI-Auswertung (Zentraler Server)
+                </div>
+                <p className="text-[11px] text-slate-500 leading-normal mb-3">
+                  Hier siehst du absolut live, wie viele verschiedene Menschen auf deiner Landingpage geklickt haben – synchronisiert über alle Geräte und Browser hinweg!
+                </p>
+
+                {sessionStats ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-slate-100/50 p-2.5 rounded-md border border-slate-100">
+                        <span className="text-slate-500 block text-[10px]">1. "Demo anfragen" (Navbar)</span>
+                        <span className="font-extrabold text-slate-800 text-sm">{sessionStats.demoNavbar}</span>
+                      </div>
+                      <div className="bg-slate-100/50 p-2.5 rounded-md border border-slate-100">
+                        <span className="text-slate-500 block text-[10px]">2. "Pilot anfragen" (Hero)</span>
+                        <span className="font-extrabold text-[#185FA5] text-sm">{sessionStats.pilotHero}</span>
+                      </div>
+                      <div className="bg-slate-100/50 p-2.5 rounded-md border border-slate-100">
+                        <span className="text-slate-500 block text-[10px]">3. "Live ausprobieren" (Hero)</span>
+                        <span className="font-extrabold text-slate-800 text-sm">{sessionStats.liveHero}</span>
+                      </div>
+                      <div className="bg-slate-100/50 p-2.5 rounded-md border border-slate-100">
+                        <span className="text-slate-500 block text-[10px]">4. "Zum Dashboard" (Navbar)</span>
+                        <span className="font-extrabold text-slate-800 text-sm">{sessionStats.dashboardNavbar}</span>
+                      </div>
+                      <div className="bg-slate-100/50 p-2.5 rounded-md border border-slate-100">
+                        <span className="text-slate-500 block text-[10px]">5. E-Mail eingetragen (Warteliste)</span>
+                        <span className="font-extrabold text-emerald-700 text-sm">{sessionStats.waitlistSubmits}</span>
+                      </div>
+                      <div className="bg-slate-100/50 p-2.5 rounded-md border border-slate-100">
+                        <span className="text-slate-500 block text-[10px]">6. Tablet/Simulator Klicks</span>
+                        <span className="font-extrabold text-amber-700 text-sm">{sessionStats.devicePreviewClicks}</span>
+                      </div>
+                      <div className="col-span-2 bg-[#E6F1FB] p-2.5 rounded-md border border-[#185FA5]/10 flex justify-between items-center">
+                        <span className="font-bold text-[#185FA5] text-xs">Gesamt-Interaktionen (Geräteübergreifend)</span>
+                        <span className="font-extrabold text-[#185FA5] text-base">{sessionStats.total}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        if (confirm("Möchten Sie alle aufgezeichneten Interaktions-KPIs auf dem Server auf Null zurücksetzen?")) {
+                          try {
+                            const response = await fetch("/api/kpi/reset", { method: "POST" });
+                            if (response.ok) {
+                              const data = await response.json();
+                              if (data.success && data.stats) {
+                                setSessionStats(data.stats);
+                              }
+                            }
+                          } catch (e) {
+                            console.warn("Failed to reset stats:", e);
+                          }
+                        }
+                      }}
+                      className="w-full text-center border border-red-200 text-red-600 hover:bg-red-50 py-2 rounded-lg text-[11px] font-bold transition duration-200 cursor-pointer"
+                    >
+                      Alle Klicks & KPIs zurücksetzen (Reset)
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic p-3 text-center bg-slate-100/30 rounded-lg">
+                    Keine Klicks aufgezeichnet. Geh auf die Landingpage und klicke auf die Buttons, um sie hier zu sehen!
+                  </div>
+                )}
+              </div>
+
               <div className="bg-indigo-50 p-3.5 rounded-xl border border-indigo-100/50 space-y-1.5 text-xs text-indigo-950">
                 <div className="font-extrabold text-indigo-900">Echtes AI-Diktat & Scanner aktivieren:</div>
                 <div className="leading-relaxed font-semibold">

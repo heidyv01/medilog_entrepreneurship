@@ -9,7 +9,8 @@ import {
   FileText, 
   Layers, 
   Users, 
-  MousePointerClick 
+  MousePointerClick,
+  X
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Patient } from "../types";
@@ -25,37 +26,86 @@ export default function LandingPage({ onEnterApp, mockPatients }: LandingPagePro
   const [emailValue, setEmailValue] = useState<string>("");
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("medilog_clicks");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setClicks(parsed.total || 0);
-      } catch (e) {
-        // Ignore
+  const [stats, setStats] = useState({
+    total: 0,
+    demoNavbar: 0,
+    pilotHero: 0,
+    liveHero: 0,
+    dashboardNavbar: 0,
+    waitlistSubmits: 0,
+    devicePreviewClicks: 0
+  });
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch("/api/kpi");
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+        setClicks(data.total);
       }
+    } catch (e) {
+      console.warn("Failed to fetch server stats:", e);
     }
+  };
+
+  useEffect(() => {
+    // Initial fetch of central stats
+    fetchStats();
+
+    // Auto-update stats every 5 seconds so you can watch other users' clicks in real-time!
+    const interval = setInterval(fetchStats, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  const trackClick = (eventName: string) => {
-    const newTotal = clicks + 1;
-    setClicks(newTotal);
-    
-    const clickStats = {
-      total: newTotal,
-      timestamp: new Date().toISOString(),
-      lastEvent: eventName
-    };
-    localStorage.setItem("medilog_clicks", JSON.stringify(clickStats));
+  const trackDetailedClick = async (actionType: "demoNavbar" | "pilotHero" | "liveHero" | "dashboardNavbar" | "waitlistSubmits" | "devicePreviewClicks") => {
+    // Optimistic UI update
+    setStats(prev => {
+      const next = {
+        ...prev,
+        [actionType]: (prev[actionType] || 0) + 1,
+        total: (prev.total || 0) + 1
+      };
+      setClicks(next.total);
+      return next;
+    });
+
+    // Send click to central server
+    try {
+      const response = await fetch("/api/kpi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: actionType })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.stats) {
+          setStats(data.stats);
+          setClicks(data.stats.total);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to register central click:", e);
+    }
   };
 
   const handleEnter = (source: string) => {
-    trackClick(`enter_app_${source}`);
+    if (source === "navbar") {
+      trackDetailedClick("dashboardNavbar");
+    } else if (source === "hero_secondary") {
+      trackDetailedClick("liveHero");
+    } else {
+      trackDetailedClick("devicePreviewClicks");
+    }
     onEnterApp();
   };
 
   const handleDemoRequest = (source: string) => {
-    trackClick(`demo_request_${source}`);
+    if (source === "navbar") {
+      trackDetailedClick("demoNavbar");
+    } else {
+      trackDetailedClick("pilotHero");
+    }
     setIsSubmitted(false);
     setEmailValue("");
     setShowToast(true);
@@ -63,7 +113,7 @@ export default function LandingPage({ onEnterApp, mockPatients }: LandingPagePro
 
   const submitWaitlist = (e: React.FormEvent) => {
     e.preventDefault();
-    trackClick("email_submit");
+    trackDetailedClick("waitlistSubmits");
     setIsSubmitted(true);
   };
 
@@ -331,10 +381,6 @@ export default function LandingPage({ onEnterApp, mockPatients }: LandingPagePro
         </div>
       )}
 
-      {/* Floating Clicks Counter */}
-      <div className="fixed bottom-4 right-4 bg-[#1A1A18] text-white text-xs px-3 py-2 rounded-full font-medium opacity-80 backdrop-blur-xs shadow-md pointer-events-none flex items-center gap-1.5 z-40 transition">
-        <MousePointerClick className="w-3.5 h-3.5" /> Klicks auf dieser Seite: {clicks}
-      </div>
     </div>
   );
 }

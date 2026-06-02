@@ -1,6 +1,6 @@
 {
   "name": "MediLog",
   "description": "Intelligenter Dokumentationsassistent für Notaufnahmen und Pflegestationen mit Formularscanner, audiounterstütztem Diktat und Echtzeit-Checklisten.",
-  "requestFramePermissions": ["camera"],
+  "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
