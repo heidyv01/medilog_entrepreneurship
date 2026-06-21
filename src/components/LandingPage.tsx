@@ -146,7 +146,7 @@ export default function LandingPage({ onEnterApp, mockPatients }: LandingPagePro
       </nav>
 
       {/* Hero Body Layout */}
-      <main className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-[1140px] mx-auto px-6 py-12 md:py-20 w-full flex-1">
+      <main className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-12 items-center max-w-[1320px] mx-auto px-6 py-12 md:py-20 w-full flex-1">
         {/* Left Column */}
         <div className="flex flex-col items-start text-left max-w-[545px]">
           <div className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide uppercase text-[#185FA5] bg-[#E6F1FB] px-3.5 py-1.5 rounded-full mb-6 border border-[#185FA5]/10">
@@ -184,32 +184,35 @@ export default function LandingPage({ onEnterApp, mockPatients }: LandingPagePro
         </div>
 
         {/* Right Column - Device Simulator */}
-        <div className="flex justify-center h-full">
+        <div className="flex justify-center h-full lg:justify-end">
           <motion.div 
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
             onClick={() => handleEnter("device_preview")}
-            className="w-[305px] h-[550px] border-[8px] border-[#1A1A18] rounded-[28px] bg-[#1A1A18] shadow-2xl overflow-hidden cursor-pointer group relative"
+            className="w-[min(92vw,700px)] aspect-[16/9] border-[10px] border-[#1A1A18] rounded-[34px] bg-[#1A1A18] shadow-2xl overflow-hidden cursor-pointer group relative"
           >
-            <div className="bg-[#1A1A18] w-28 h-4 mx-auto absolute top-0 left-1/2 -translate-x-1/2 rounded-b-xl z-20 flex items-center justify-center">
-              <span className="w-10 h-1 bg-white/20 rounded-full"></span>
+            <div className="absolute top-3 left-1/2 z-20 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-white/20 ring-2 ring-black/20">
+              <span className="block h-full w-full rounded-full bg-[#10100F]"></span>
             </div>
             
-            <div className="bg-[#F4F3F0] h-full rounded-[20px] flex flex-col overflow-hidden relative select-none">
-              <div className="bg-white border-b border-black/5 px-4 pt-6 pb-2.5 flex justify-between items-center">
+            <div className="bg-[#F4F3F0] h-full rounded-[24px] flex flex-col overflow-hidden relative select-none">
+              <div className="bg-white border-b border-black/5 px-6 pt-7 pb-3 flex justify-between items-center">
                 <div>
-                  <div className="text-sm font-bold">Medi<span className="text-[#185FA5]">Log</span></div>
-                  <div className="text-[9px] text-[#A0A09A]">Notaufnahme · Station A</div>
+                  <div className="text-base font-bold">Medi<span className="text-[#185FA5]">Log</span></div>
+                  <div className="text-[11px] text-[#A0A09A]">Notaufnahme · Station A</div>
                 </div>
-                <div className="w-2.5 h-2.5 rounded-full bg-[#0F6E56]"></div>
+                <div className="flex items-center gap-2 rounded-full bg-[#E1F5EE] px-3 py-1 text-[10px] font-bold text-[#0F6E56]">
+                  <span className="h-2 w-2 rounded-full bg-[#0F6E56]"></span>
+                  Live
+                </div>
               </div>
 
               {/* Patient List Content Inside Simulator */}
-              <div className="p-4 flex-1 overflow-hidden">
+              <div className="p-6 flex-1 overflow-hidden">
                 <div className="text-[10px] font-bold text-[#A0A09A] uppercase tracking-wider mb-2.5">Aktuelle Fälle</div>
                 
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {mockPatients.map((p) => {
                     const initials = `${p.lastName[0] || ""}${p.firstName[0] || ""}`.toUpperCase();
                     const ageStr = p.birthday ? "· 58 J" : ""; // static placeholders for looks only
@@ -219,29 +222,44 @@ export default function LandingPage({ onEnterApp, mockPatients }: LandingPagePro
                       { bg: "bg-green-50", text: "text-green-800", label: "P3" };
 
                     return (
-                      <div key={p.id} className="bg-white border border-black/5 rounded-lg p-2.5 flex items-center gap-2.5 shadow-sm transform group-hover:scale-[1.01] transition-transform">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${prioColors.bg} ${prioColors.text}`}>
+                      <div key={p.id} className="bg-white border border-black/5 rounded-lg p-3 flex items-center gap-2.5 shadow-sm transform group-hover:scale-[1.01] transition-transform">
+                        <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center font-bold text-xs ${prioColors.bg} ${prioColors.text}`}>
                           {initials}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-[#1A1A18] truncate">{p.lastName}, {p.firstName}</span>
+                            <span className="text-sm font-semibold text-[#1A1A18] truncate">{p.lastName}, {p.firstName}</span>
                           </div>
-                          <div className="text-[10px] text-[#6B6B65] truncate">
+                          <div className="text-[11px] text-[#6B6B65] truncate">
                             {p.diagnoses || "V.a. Symptomatik"} {ageStr}
                           </div>
                         </div>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${prioColors.bg} ${prioColors.text}`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${prioColors.bg} ${prioColors.text}`}>
                           {prioColors.label}
                         </span>
                       </div>
                     );
                   })}
                 </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-2.5">
+                  <div className="rounded-lg bg-white/80 p-3 shadow-sm border border-black/5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#A0A09A]">Doku</div>
+                    <div className="mt-1 text-base font-extrabold text-[#185FA5]">42s</div>
+                  </div>
+                  <div className="rounded-lg bg-white/80 p-3 shadow-sm border border-black/5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#A0A09A]">Scan</div>
+                    <div className="mt-1 text-base font-extrabold text-[#0F6E56]">bereit</div>
+                  </div>
+                  <div className="rounded-lg bg-white/80 p-3 shadow-sm border border-black/5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#A0A09A]">Team</div>
+                    <div className="mt-1 text-base font-extrabold text-[#1A1A18]">6</div>
+                  </div>
+                </div>
               </div>
 
               {/* Glowing Interactive overlay banner */}
-              <div className="absolute inset-0 bg-gradient-to-t from-white via-white/50 to-transparent flex items-end justify-center pb-8 p-4">
+              <div className="absolute inset-0 bg-gradient-to-t from-white via-white/25 to-transparent flex items-end justify-center pb-6 p-4">
                 <button className="px-5 py-2.5 rounded-lg bg-[#185FA5] text-white hover:bg-[#0C447C] font-semibold text-xs transition duration-200 shadow-lg tracking-tight inline-flex items-center gap-1">
                   Live-Vorschau öffnen <ArrowRight className="w-3.5 h-3.5" />
                 </button>
