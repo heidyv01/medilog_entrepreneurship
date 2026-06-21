@@ -54,14 +54,18 @@ export default function Sidebar({
   return (
     <aside className="w-[200px] bg-slate-900 border-r border-slate-800 flex flex-col items-stretch p-[18px] pb-4 gap-1 flex-shrink-0 z-30 select-none">
       {/* Brand logo */}
-      <div className="flex items-center gap-2.5 px-2.5 pb-6">
+      <button
+        type="button"
+        onClick={() => onTabChange("dashboard")}
+        className="flex items-center gap-2.5 px-2.5 pb-6 text-left rounded-lg cursor-pointer hover:opacity-90 transition"
+      >
         <span className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold">
           <Heart className="w-4 h-4 fill-white text-white" />
         </span>
         <span className="text-white font-semibold text-lg tracking-tight">
           Medi<span className="text-indigo-400">Log</span>
         </span>
-      </div>
+      </button>
 
       {/* Main Tab Navigation */}
       <nav className="flex-1 space-y-1">

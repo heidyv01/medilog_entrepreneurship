@@ -1,20 +1,43 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# MediLog Prototyp
 
-# Run and deploy your AI Studio app
+MediLog ist ein interaktiver Prototyp für die digitale Dokumentation in der Notaufnahme. Der Fokus liegt nicht auf einem produktionsreifen Backend, sondern darauf, zentrale Funktionen so erlebbar zu machen, dass potenzielle Kundinnen und Kunden ein Gefühl für den späteren Nutzen bekommen.
 
-This contains everything you need to run your app locally.
+## Kritische Demo-Use-Cases
 
-View your app in AI Studio: https://ai.studio/apps/2daa8ab8-c9da-40f5-8ccd-e18a59d618de
+1. **Aufnahme per Formularscan**
+   In der Neuaufnahme kann ein Beispiel-Notarztprotokoll gescannt werden. Der Prototyp übernimmt automatisch Stammdaten, Priorität, Beschwerden, Vitalwerte, Medikamente und Pflegehinweise.
 
-## Run Locally
+2. **Spracheingabe in der Neuaufnahme**
+   Die Spracheingabe simuliert ein ärztliches Diktat. Danach wandelt `KI verbessern` die medizinische Fachsprache in eine verständlichere Version um.
 
-**Prerequisites:**  Node.js
+3. **Bestehende Patientenakte**
+   Bei bestehenden Fällen erzeugt `Beispiel-Diktat` fallbezogene Notizen. `Diktat verfeinern` strukturiert diese zu einem passenden Befundentwurf.
 
+4. **Stationsüberblick**
+   Das Dashboard zeigt aktive Fälle, Prioritäten, Bettenbelegung, kritische Hinweise und Aktivitäten der Station.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Demo-Flow
+
+1. Landing Page öffnen.
+2. `Live ausprobieren` klicken.
+3. In `Neu` den `Beispiel-Scan starten`.
+4. Optional Spracheingabe und `KI verbessern` in den weiteren Schritten testen.
+5. Fall anlegen und im Dashboard wiederfinden.
+6. Bestehende Patientenakte öffnen und `Beispiel-Diktat` sowie `Diktat verfeinern` testen.
+
+## Lokal starten
+
+**Voraussetzung:** Node.js
+
+```bash
+npm install
+npm run dev
+```
+
+Die App läuft standardmäßig unter:
+
+```text
+http://localhost:3000
+```
+
+Ein `GEMINI_API_KEY` kann für echte Gemini-Funktionen gesetzt werden. Für die Demo sind die zentralen Scan- und Diktatabläufe aber bewusst auch ohne API-Key funktionsfähig.

@@ -204,11 +204,11 @@ export default function App() {
       }
     } else {
       const defaultActivities: Activity[] = [
-        { id: "l1", text: "Müller, Max — P1 aufgenommen", time: "08:14", type: "P1" },
-        { id: "l2", text: "Schmidt, Anna — P2 aufgenommen", time: "09:02", type: "P2" },
-        { id: "l3", text: "Weber, Klaus — P3 aufgenommen", time: "09:45", type: "P3" },
-        { id: "l4", text: "Bauer, Elsa — entlassen", time: "10:30", type: "discharge" },
-        { id: "l5", text: "Koch, Peter — entlassen", time: "11:15", type: "discharge" }
+        { id: "l1", text: "Müller, Max - P1 aufgenommen", time: "08:14", type: "P1" },
+        { id: "l2", text: "Schmidt, Anna - P2 aufgenommen", time: "09:02", type: "P2" },
+        { id: "l3", text: "Weber, Klaus - P3 aufgenommen", time: "09:45", type: "P3" },
+        { id: "l4", text: "Bauer, Elsa - entlassen", time: "10:30", type: "discharge" },
+        { id: "l5", text: "Koch, Peter - entlassen", time: "11:15", type: "discharge" }
       ];
       setActivities(defaultActivities);
       localStorage.setItem(LOCAL_ACTIVITIES_KEY, JSON.stringify(defaultActivities));
@@ -253,7 +253,7 @@ export default function App() {
     const matchType = updatedPatient.prio;
     const itemLog: Activity = {
       id: `l_${Date.now()}`,
-      text: `${updatedPatient.lastName}, ${updatedPatient.firstName} — Doku aktualisiert`,
+      text: `${updatedPatient.lastName}, ${updatedPatient.firstName} - Doku aktualisiert`,
       time: timeStr,
       type: matchType
     };
@@ -278,7 +278,7 @@ export default function App() {
     // Append admission log
     const itemLog: Activity = {
       id: `l_${Date.now()}`,
-      text: `${freshPatient.lastName}, ${freshPatient.firstName} — Prio ${freshPatient.prio} aufgenommen`,
+      text: `${freshPatient.lastName}, ${freshPatient.firstName} - Prio ${freshPatient.prio} aufgenommen`,
       time: admittedAt,
       type: freshPatient.prio
     };
@@ -304,7 +304,7 @@ export default function App() {
     const dischargedAt = now.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
     const itemLog: Activity = {
       id: `l_${Date.now()}`,
-      text: `${pRecord.lastName}, ${pRecord.firstName} — entlassen`,
+      text: `${pRecord.lastName}, ${pRecord.firstName} - entlassen`,
       time: dischargedAt,
       type: "discharge"
     };
@@ -468,8 +468,8 @@ export default function App() {
                   <NewPatientTab 
                     onCreatePatient={(freshData) => {
                       createPatientHandler(freshData);
-                      // Navigate directly to patient screen listing to verify results
-                      setActiveTab("patienten");
+                      // Show the newly admitted case in the operational board flow.
+                      setActiveTab("dashboard");
                       setSelectedPatientId(null);
                     }}
                   />
@@ -516,7 +516,7 @@ export default function App() {
                   Globale KPI-Auswertung (Zentraler Server)
                 </div>
                 <p className="text-[11px] text-slate-500 leading-normal mb-3">
-                  Hier siehst du absolut live, wie viele verschiedene Menschen auf deiner Landingpage geklickt haben – synchronisiert über alle Geräte und Browser hinweg!
+                  Hier siehst du absolut live, wie viele verschiedene Menschen auf deiner Landingpage geklickt haben - synchronisiert über alle Geräte und Browser hinweg!
                 </p>
 
                 {sessionStats ? (

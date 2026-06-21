@@ -158,7 +158,7 @@ export default function LandingPage({ onEnterApp, mockPatients }: LandingPagePro
           </h1>
           
           <p className="text-base md:text-lg text-[#6B6B65] leading-relaxed mb-8">
-            MediLog erfasst Anamnese, Vitalwerte und Befunde per Sprache und Formularscan — geräteübergreifend in Echtzeit. Damit das klinische Team weniger tippt und MEHR behandelt.
+            MediLog erfasst Anamnese, Vitalwerte und Befunde per Sprache und Formularscan - geräteübergreifend in Echtzeit. Damit das klinische Team weniger tippt und MEHR behandelt.
           </p>
 
           <div className="flex flex-wrap gap-3.5 w-full mb-5">
@@ -179,7 +179,7 @@ export default function LandingPage({ onEnterApp, mockPatients }: LandingPagePro
           </div>
 
           <div className="text-xs text-[#A0A09A] flex items-center gap-2 font-medium">
-            <Check className="w-4 h-4 text-[#0F6E56] stroke-[2.5]" /> Kein Setup nötig — Walkthrough direkt auf Ihrer Station
+            <Check className="w-4 h-4 text-[#0F6E56] stroke-[2.5]" /> Kein Setup nötig - Walkthrough direkt auf Ihrer Station
           </div>
         </div>
 

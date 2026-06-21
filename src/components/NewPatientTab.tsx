@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   Check, 
   ArrowRight, 
@@ -19,6 +19,49 @@ import { Patient } from "../types";
 
 interface NewPatientTabProps {
   onCreatePatient: (newPatient: Omit<Patient, "id" | "admittedAt">) => void;
+}
+
+type VoiceField = "symptomDetails" | "medicationList" | "adminNotes";
+
+interface DemoVoiceCase {
+  medical: Record<VoiceField, string>;
+  plain: Record<VoiceField, string>;
+}
+
+interface DemoScanCase {
+  preview: {
+    name: string;
+    prio: "P1" | "P2" | "P3";
+    complaint: string;
+    bp: string;
+    pulse: string;
+    spo2: string;
+  };
+  fields: {
+    lastName: string;
+    firstName: string;
+    birthday: string;
+    gender: string;
+    insurance: string;
+    prio: "P1" | "P2" | "P3";
+    bed: string;
+    symptoms: string[];
+    onset: string;
+    painLevel: number;
+    symptomDetails: string;
+    historyChips: string[];
+    medication: string;
+    allergies: string;
+    smoking: string;
+    drinking: string;
+    vitalBP: string;
+    vitalPulse: string;
+    vitalTemp: string;
+    vitalSpO2: string;
+    vitalRespRate: string;
+    vitalGCS: string;
+    adminNotes: string;
+  };
 }
 
 export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
@@ -68,56 +111,254 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any | null>(null);
+  const demoVoiceTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const demoVoiceCaseIndexRef = useRef<number>(0);
+  const demoScanCaseIndexRef = useRef<number>(0);
+  const symptomDetailsRef = useRef<HTMLTextAreaElement>(null);
+  const medicationListRef = useRef<HTMLTextAreaElement>(null);
+  const adminNotesRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleRefineFieldWithGemini = async (fieldId: "symptomDetails" | "medicationList" | "adminNotes") => {
-    const rawText = 
+  const resizeVoiceTextarea = (textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    const maxHeight = 260;
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    resizeVoiceTextarea(symptomDetailsRef.current);
+  }, [symptomDetails, currentStep]);
+
+  useEffect(() => {
+    resizeVoiceTextarea(medicationListRef.current);
+  }, [medicationList, currentStep]);
+
+  useEffect(() => {
+    resizeVoiceTextarea(adminNotesRef.current);
+  }, [adminNotes, currentStep]);
+
+  const demoVoiceCases: DemoVoiceCase[] = [
+    {
+      medical: {
+        symptomDetails: "Pat. mit akut einsetzender Dyspnoe und retrosternalem Druckgefühl seit ca. 45 Min.; kaltschweißig, tachypnoisch, keine Synkope, kein Trauma. V.a. ACS, DD pulmonale Genese.",
+        medicationList: "Dauermedikation laut Pat.: Ramipril 5 mg 1-0-0, ASS 100 mg 1-0-0, Salbutamol DA bei Bedarf. Penicillinallergie anamnestisch.",
+        adminNotes: "Monitoring etablieren, Oberkörperhochlagerung, EKG und Troponin priorisiert. Bei SpO2-Abfall O2-Gabe und ärztliche Reevaluation."
+      },
+      plain: {
+        symptomDetails: "In normaler Sprache:\n- Die Patientin hat seit etwa 45 Minuten Luftnot und Druck auf der Brust.\n- Sie wirkt verschwitzt und atmet schneller als normal.\n- Es gab keinen Unfall und keine Ohnmacht.\n- Zur Sicherheit sollen EKG, Blutwerte und Monitoring schnell erfolgen.",
+        medicationList: "Medikamente einfach erklärt:\n- Ramipril nimmt die Patientin morgens gegen Blutdruck.\n- ASS nimmt sie täglich zur Blutverdünnung.\n- Salbutamol nutzt sie nur bei Atemnot.\n- Penicillin soll wegen Allergie vermieden werden.",
+        adminNotes: "Übergabe in normaler Sprache:\n- Die Patientin soll mit hochgestelltem Oberkörper liegen.\n- Herz, Sauerstoff und Kreislauf sollen weiter beobachtet werden.\n- Wenn die Luftnot zunimmt, soll sofort ärztlich rückgesprochen werden.\n- EKG und Blutwerte haben Priorität."
+      }
+    },
+    {
+      medical: {
+        symptomDetails: "Pat. mit progredientem rechtsseitigem Unterbauchschmerz seit ca. 8 Std.; Druck- und Loslassschmerz positiv, subfebril, Übelkeit ohne Erbrechen. V.a. akute Appendizitis.",
+        medicationList: "Eigenmedikation: Ibuprofen 400 mg einmalig heute Morgen, sonst keine Dauermedikation. Keine bekannten Allergien.",
+        adminNotes: "Nüchtern belassen, i.v. Zugang legen, Labor inkl. CRP/Leukozyten und Sono Abdomen anmelden. Analgesie nach ärztlicher Rücksprache."
+      },
+      plain: {
+        symptomDetails: "- Die Patientin hat seit mehreren Stunden stärker werdende Schmerzen rechts unten im Bauch.\n- Beim Loslassen nach Druck tut es besonders weh.\n- Ihr ist übel, sie hat aber nicht erbrochen.\n- Es besteht der Verdacht auf eine Blinddarmentzündung.",
+        medicationList: "- Sie hat heute Morgen einmal Ibuprofen gegen die Schmerzen genommen.\n- Sonst nimmt sie keine regelmäßigen Medikamente.\n- Allergien sind nicht bekannt.",
+        adminNotes: "- Die Patientin soll vorerst nichts essen oder trinken.\n- Ein venöser Zugang und Blutwerte werden vorbereitet.\n- Der Bauch soll per Ultraschall untersucht werden.\n- Schmerzmittel bitte mit der Ärztin oder dem Arzt abstimmen."
+      }
+    },
+    {
+      medical: {
+        symptomDetails: "Pat. mit akutem Drehschwindel, Nystagmus und Gangunsicherheit seit dem Aufstehen; keine Paresen, keine Aphasie, kein Thoraxschmerz. DD BPLS vs. posteriorer Insult.",
+        medicationList: "Dauermedikation: Metoprolol 47,5 mg 1-0-0, Apixaban 5 mg 1-0-1 bei VHF. Keine Allergien angegeben.",
+        adminNotes: "Sturzprophylaxe, Mobilisation nur mit Assistenz, neurologischen Status engmaschig kontrollieren. Bei neuem Defizit Stroke-Alarm auslösen."
+      },
+      plain: {
+        symptomDetails: "- Der Patient hat seit dem Aufstehen starken Drehschwindel.\n- Er geht unsicher und die Augen bewegen sich auffällig.\n- Lähmungen oder Sprachstörungen wurden nicht gesehen.\n- Es muss geklärt werden, ob es ein Lagerungsschwindel oder ein Schlaganfallzeichen ist.",
+        medicationList: "- Metoprolol nimmt der Patient morgens fürs Herz.\n- Apixaban nimmt er morgens und abends zur Blutverdünnung wegen Vorhofflimmern.\n- Allergien sind nicht bekannt.",
+        adminNotes: "- Der Patient soll wegen Sturzgefahr nicht allein aufstehen.\n- Bitte regelmäßig prüfen, ob Sprache, Kraft oder Bewusstsein sich verändern.\n- Bei neuen Ausfällen sofort Stroke-Alarm auslösen."
+      }
+    }
+  ];
+
+  const findDemoVoiceCase = (fieldId: VoiceField, rawText: string) => {
+    const trimmed = rawText.trim();
+    return demoVoiceCases.find((demoCase) => demoCase.medical[fieldId] === trimmed || demoCase.plain[fieldId] === trimmed);
+  };
+
+  const getNextDemoVoiceCase = () => {
+    const demoCase = demoVoiceCases[demoVoiceCaseIndexRef.current % demoVoiceCases.length];
+    demoVoiceCaseIndexRef.current += 1;
+    return demoCase;
+  };
+
+  const buildDemoRefinedText = (fieldId: VoiceField, rawText: string) => {
+    const matchingCase = findDemoVoiceCase(fieldId, rawText) || demoVoiceCases[0];
+    return `${matchingCase.plain[fieldId]}\n\nAus dem medizinischen Diktat: ${rawText}`;
+  };
+
+  const setVoiceTextForField = (fieldId: VoiceField, text: string) => {
+    if (fieldId === "symptomDetails") setSymptomDetails(text);
+    else if (fieldId === "medicationList") setMedicationList(text);
+    else setAdminNotes(text);
+  };
+
+  const demoScanCases: DemoScanCase[] = [
+    {
+      preview: { name: "Bauer, Lena", prio: "P2", complaint: "Dyspnoe", bp: "154/92", pulse: "104", spo2: "93%" },
+      fields: {
+        lastName: "Bauer",
+        firstName: "Lena",
+        birthday: "1987-11-03",
+        gender: "Weiblich",
+        insurance: "Techniker Krankenkasse",
+        prio: "P2",
+        bed: "Liege 4",
+        symptoms: ["Dyspnoe", "Chest Pain"],
+        onset: "< 1 Std.",
+        painLevel: 6,
+        symptomDetails: "Seit ca. 45 Minuten Luftnot und thorakales Druckgefühl. Kaltschweißig, spricht in kurzen Sätzen. Kein Trauma, keine Synkope.",
+        historyChips: ["Hypertonie", "KHK"],
+        medication: "Ramipril 5 mg morgens\nASS 100 mg täglich\nSalbutamol Dosieraerosol bei Bedarf",
+        allergies: "Penicillin",
+        smoking: "Nein",
+        drinking: "Gelegentlich",
+        vitalBP: "154/92",
+        vitalPulse: "104",
+        vitalTemp: "37.3",
+        vitalSpO2: "93",
+        vitalRespRate: "22",
+        vitalGCS: "15",
+        adminNotes: "Oberkörper hochlagern, Monitoring starten, EKG und Troponin priorisiert."
+      }
+    },
+    {
+      preview: { name: "Keller, Jonas", prio: "P2", complaint: "Bauchschmerz", bp: "126/78", pulse: "96", spo2: "98%" },
+      fields: {
+        lastName: "Keller",
+        firstName: "Jonas",
+        birthday: "2001-06-18",
+        gender: "Männlich",
+        insurance: "AOK Hessen",
+        prio: "P2",
+        bed: "Bett 8",
+        symptoms: ["Bauchschmerz", "Fieber"],
+        onset: "6-24 Std.",
+        painLevel: 7,
+        symptomDetails: "Zunehmender rechtsseitiger Unterbauchschmerz seit dem Vormittag. Übelkeit, subfebril, Loslassschmerz positiv.",
+        historyChips: ["Keine"],
+        medication: "Ibuprofen 400 mg einmalig selbst eingenommen",
+        allergies: "Keine bekannt",
+        smoking: "Nein",
+        drinking: "Nein",
+        vitalBP: "126/78",
+        vitalPulse: "96",
+        vitalTemp: "38.0",
+        vitalSpO2: "98",
+        vitalRespRate: "16",
+        vitalGCS: "15",
+        adminNotes: "Nüchtern belassen, i.v. Zugang vorbereiten, Sono Abdomen und Labor priorisieren."
+      }
+    },
+    {
+      preview: { name: "Yilmaz, Emre", prio: "P3", complaint: "Schwindel", bp: "138/84", pulse: "72", spo2: "97%" },
+      fields: {
+        lastName: "Yilmaz",
+        firstName: "Emre",
+        birthday: "1959-02-24",
+        gender: "Männlich",
+        insurance: "Barmer",
+        prio: "P3",
+        bed: "Bett 11",
+        symptoms: ["Schwindel"],
+        onset: "Gerade eben",
+        painLevel: 0,
+        symptomDetails: "Akuter lagerungsabhängiger Drehschwindel seit dem Aufstehen. Keine Paresen, keine Sprachstörung, Gangunsicherheit vorhanden.",
+        historyChips: ["Hypertonie"],
+        medication: "Metoprolol 47,5 mg morgens\nApixaban 5 mg morgens und abends",
+        allergies: "Keine bekannt",
+        smoking: "Ex-Raucher",
+        drinking: "Gelegentlich",
+        vitalBP: "138/84",
+        vitalPulse: "72",
+        vitalTemp: "36.8",
+        vitalSpO2: "97",
+        vitalRespRate: "14",
+        vitalGCS: "15",
+        adminNotes: "Sturzprophylaxe, Mobilisation nur mit Assistenz, neurologische Warnzeichen beobachten."
+      }
+    }
+  ];
+
+  const getCurrentDemoScanCase = () => demoScanCases[demoScanCaseIndexRef.current % demoScanCases.length];
+
+  const advanceDemoScanCase = () => {
+    demoScanCaseIndexRef.current += 1;
+  };
+
+  const applyDemoScanResult = (demoCase: DemoScanCase = getCurrentDemoScanCase()) => {
+    const fields = demoCase.fields;
+    setLastName(fields.lastName);
+    setFirstName(fields.firstName);
+    setBirthday(fields.birthday);
+    setGender(fields.gender);
+    setInsurance(fields.insurance);
+    setPrio(fields.prio);
+    setBed(fields.bed);
+    setSelectedSymptoms(fields.symptoms);
+    setOnset(fields.onset);
+    setPainLevel(fields.painLevel);
+    setSymptomDetails(fields.symptomDetails);
+    setSelectedHistoryChips(fields.historyChips);
+    setMedicationList(fields.medication);
+    setAllergiesItem(fields.allergies);
+    setSmoking(fields.smoking);
+    setDrinking(fields.drinking);
+    setVitalBP(fields.vitalBP);
+    setVitalPulse(fields.vitalPulse);
+    setVitalTemp(fields.vitalTemp);
+    setVitalSpO2(fields.vitalSpO2);
+    setVitalRespRate(fields.vitalRespRate);
+    setVitalGCS(fields.vitalGCS);
+    setAdminNotes(fields.adminNotes);
+    setScanResultDesc(`Demo-Scan: ${demoCase.preview.name} erkannt und relevante Felder automatisch übernommen.`);
+  };
+
+  const startDemoScanFlow = () => {
+    const demoCase = getCurrentDemoScanCase();
+    setScanLoading(true);
+    setScanResultDesc("Demo-Scan: Beispiel-Notarztprotokoll wird vorbereitet...");
+
+    setTimeout(() => {
+      applyDemoScanResult(demoCase);
+      advanceDemoScanCase();
+      setScanLoading(false);
+    }, 950);
+  };
+
+  const currentDemoScanPreview = getCurrentDemoScanCase().preview;
+
+  const handleRefineFieldWithGemini = async (fieldId: VoiceField) => {
+    const rawText =
       fieldId === "symptomDetails" ? symptomDetails :
       fieldId === "medicationList" ? medicationList : adminNotes;
+    const sourceCase = findDemoVoiceCase(fieldId, rawText) || getNextDemoVoiceCase();
+    const sourceText = rawText.trim() || sourceCase.medical[fieldId];
 
     if (!rawText.trim()) {
-      setRefineError("Bitte schreiben oder diktieren Sie zuerst einen Text, den Sie verfeinern möchten.");
-      setTimeout(() => setRefineError(null), 4000);
-      return;
+      setVoiceTextForField(fieldId, sourceText);
     }
 
     setRefiningField(fieldId);
     setRefineError(null);
 
-    const contextMap = {
-      symptomDetails: "Symptombeschreibung und Verlauf - Notaufnahme",
-      medicationList: "Medikamente / Dauermedikation des Patienten",
-      adminNotes: "Pflegehinweise und administrative Anmerkungen"
-    };
-
     try {
-      const response = await fetch("/api/refine", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          text: rawText, 
-          context: contextMap[fieldId]
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Fehler beim Verfeinern auf dem Server");
-      }
-
-      const data = await response.json();
-      if (data.text) {
-        if (fieldId === "symptomDetails") setSymptomDetails(data.text);
-        else if (fieldId === "medicationList") setMedicationList(data.text);
-        else setAdminNotes(data.text);
-      }
+      await new Promise(resolve => setTimeout(resolve, 650));
+      setVoiceTextForField(fieldId, buildDemoRefinedText(fieldId, sourceText));
     } catch (error: any) {
-      console.error(error);
-      setRefineError("Fehler beim Veredeln: " + error.message);
-      setTimeout(() => setRefineError(null), 5000);
+      console.warn("Using local demo plain-language fallback:", error);
+      setVoiceTextForField(fieldId, buildDemoRefinedText(fieldId, sourceText));
     } finally {
       setRefiningField(null);
     }
   };
-
   // Computed Checklist tasks representation
   const isNameFilled = lastName.trim() !== "";
   const isSymptomChecked = selectedSymptoms.length > 0;
@@ -169,69 +410,34 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
     startVoice(fieldId);
   };
 
-  const startVoice = (fieldId: "symptomDetails" | "medicationList" | "adminNotes") => {
-    const SpeechRecognitionClass = 
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  const startVoice = (fieldId: VoiceField) => {
+    stopVoice();
+    const demoCase = getNextDemoVoiceCase();
+    setIsRecording(true);
+    setVoiceField(fieldId);
+    setVoiceStatus("Hoere zu...");
 
-    if (!SpeechRecognitionClass) {
-      setVoiceStatus("Browser unterstützt keine native Spracheingabe.");
-      setTimeout(() => setVoiceStatus(""), 3000);
-      return;
-    }
+    const transcribingTimer = setTimeout(() => {
+      setVoiceStatus("Transkribiere medizinisches Diktat...");
+    }, 650);
 
-    try {
-      const rec = new SpeechRecognitionClass();
-      rec.lang = "de-DE";
-      rec.continuous = true;
-      rec.interimResults = true;
+    const fillTimer = setTimeout(() => {
+      setVoiceTextForField(fieldId, demoCase.medical[fieldId]);
+      setVoiceStatus("Diktat übernommen");
+    }, 1300);
 
-      const baseText = 
-        fieldId === "symptomDetails" ? symptomDetails :
-        fieldId === "medicationList" ? medicationList : adminNotes;
-
-      rec.onstart = () => {
-        setIsRecording(true);
-        setVoiceField(fieldId);
-        setVoiceStatus("Diktiere...");
-      };
-
-      rec.onresult = (event: any) => {
-        let finalTrans = "";
-        let interimTrans = "";
-        for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTrans += event.results[i][0].transcript + " ";
-          } else {
-            interimTrans += event.results[i][0].transcript;
-          }
-        }
-        const combined = `${baseText}${baseText && finalTrans ? "\n" : ""}${finalTrans}${interimTrans}`;
-        
-        if (fieldId === "symptomDetails") setSymptomDetails(combined.trimStart());
-        else if (fieldId === "medicationList") setMedicationList(combined.trimStart());
-        else setAdminNotes(combined.trimStart());
-      };
-
-      rec.onerror = (e: any) => {
-        console.error("Speech recognition error:", e.error);
-        stopVoice();
-      };
-
-      rec.onend = () => {
-        setIsRecording(false);
-        setVoiceField(null);
-        setVoiceStatus("");
-      };
-
-      recognitionRef.current = rec;
-      rec.start();
-    } catch (err) {
-      console.error(err);
+    const finishTimer = setTimeout(() => {
       setIsRecording(false);
-    }
-  };
+      setVoiceField(null);
+      setVoiceStatus("");
+      demoVoiceTimersRef.current = [];
+    }, 2200);
 
+    demoVoiceTimersRef.current = [transcribingTimer, fillTimer, finishTimer];
+  };
   const stopVoice = () => {
+    demoVoiceTimersRef.current.forEach(timer => clearTimeout(timer));
+    demoVoiceTimersRef.current = [];
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -339,8 +545,8 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
           setScanResultDesc("Formular erfolgreich eingescannt und übertragen! Überprüfen Sie bitte die übernommenen Daten.");
         }
       } catch (error: any) {
-        console.error(error);
-        setScanResultDesc("Konnte das Formular nicht automatisch befüllen: " + error.message);
+        console.warn("Using local demo scan fallback:", error);
+        applyDemoScanResult();
       } finally {
         setScanLoading(false);
       }
@@ -487,6 +693,28 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
             ) : (
               <div className="space-y-1.5 text-slate-800">
                 <Camera className="w-8 h-8 mx-auto text-slate-400" />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startDemoScanFlow();
+                  }}
+                  className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-200 fill-yellow-200" />
+                  Beispiel-Scan starten
+                </button>
+                <div className="mx-auto mt-3 max-w-[360px] rounded-lg border border-slate-200 bg-slate-50 p-3 text-left shadow-xs">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Beispiel-Notarztprotokoll</div>
+                  <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-600">
+                    <span><strong>Name:</strong> {currentDemoScanPreview.name}</span>
+                    <span><strong>Prio:</strong> {currentDemoScanPreview.prio}</span>
+                    <span><strong>Beschwerde:</strong> {currentDemoScanPreview.complaint}</span>
+                    <span><strong>RR:</strong> {currentDemoScanPreview.bp}</span>
+                    <span><strong>Puls:</strong> {currentDemoScanPreview.pulse}</span>
+                    <span><strong>SpO2:</strong> {currentDemoScanPreview.spo2}</span>
+                  </div>
+                </div>
                 <p className="text-xs font-bold">Einweisung, Notarztprotokoll o.ä. fotografieren</p>
                 <p className="text-[10px] text-slate-500">Die KI liest handschriftliche Formulare sofort aus und füllt alle Felder</p>
               </div>
@@ -543,7 +771,7 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
                   onChange={(e) => setGender(e.target.value)}
                   className="w-full px-3 py-2 text-sm bg-slate-50/55 border border-slate-200 rounded-lg outline-none cursor-pointer focus:border-indigo-500"
                 >
-                  <option value="">wählen—</option>
+                  <option value="">wählen -</option>
                   <option value="Männlich">Männlich</option>
                   <option value="Weiblich">Weiblich</option>
                   <option value="Divers">Divers</option>
@@ -640,7 +868,7 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
                   onChange={(e) => setOnset(e.target.value)}
                   className="w-full px-3 py-2 text-sm bg-slate-50/55 border border-slate-200 rounded-lg cursor-pointer outline-none focus:border-indigo-500"
                 >
-                  <option value="">wählen—</option>
+                  <option value="">wählen -</option>
                   <option value="Gerade eben">Gerade eben</option>
                   <option value="< 1 Std.">&lt; 1 Std.</option>
                   <option value="1-6 Std.">1-6 Std.</option>
@@ -650,7 +878,7 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Schmerzstärke (NRS 0–10): <strong className="text-slate-900">{painLevel}</strong></label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Schmerzstärke (NRS 0-10): <strong className="text-slate-900">{painLevel}</strong></label>
                 <div className="flex items-center gap-3">
                   <input 
                     type="range" 
@@ -668,10 +896,11 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
             <div className="space-y-1 pt-2">
               <label className="block text-[10px] font-bold text-slate-400 uppercase">Symptomverlauf details</label>
               <textarea 
+                ref={symptomDetailsRef}
                 value={symptomDetails}
                 onChange={(e) => setSymptomDetails(e.target.value)}
                 placeholder="Genauerer Verlauf, Lokalisation o.ä..."
-                className="w-full min-h-[75px] bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
+                className="w-full min-h-[75px] max-h-[260px] overflow-y-auto bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
               />
               <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
                 <div className="flex items-center gap-2">
@@ -764,10 +993,11 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
             <div className="space-y-1">
               <label className="block text-[10px] font-bold text-slate-400 uppercase">Medikamente (Dauermedikation)</label>
               <textarea 
+                ref={medicationListRef}
                 value={medicationList}
                 onChange={(e) => setMedicationList(e.target.value)}
                 placeholder="Aktuelle Medikamente..."
-                className="w-full min-h-[60px] bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
+                className="w-full min-h-[60px] max-h-[260px] overflow-y-auto bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
               />
               <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
                 <div className="flex items-center gap-2">
@@ -825,7 +1055,7 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
                   onChange={(e) => setSmoking(e.target.value)}
                   className="w-full px-3 py-2 text-sm bg-slate-50/55 border border-slate-200 rounded-lg outline-none cursor-pointer focus:border-indigo-500"
                 >
-                  <option value="">wählen—</option>
+                  <option value="">wählen -</option>
                   <option value="Nein">Nein</option>
                   <option value="Ja">Ja</option>
                   <option value="Ex-Raucher">Ex-Raucher</option>
@@ -839,7 +1069,7 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
                   onChange={(e) => setDrinking(e.target.value)}
                   className="w-full px-3 py-2 text-sm bg-slate-50/55 border border-slate-200 rounded-lg outline-none cursor-pointer focus:border-indigo-500"
                 >
-                  <option value="">wählen—</option>
+                  <option value="">wählen -</option>
                   <option value="Nein">Nein</option>
                   <option value="Gelegentlich">Gelegentlich</option>
                   <option value="Regelmäßig">Regelmäßig</option>
@@ -927,7 +1157,7 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">GCS (3–15)</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">GCS (3-15)</label>
                 <input 
                   type="number" 
                   min="3" 
@@ -944,10 +1174,11 @@ export default function NewPatientTab({ onCreatePatient }: NewPatientTabProps) {
             <div className="space-y-1 pt-1">
               <label className="block text-[10px] font-bold text-slate-400 uppercase">Übergeordnete Pflegehinweise</label>
               <textarea 
+                ref={adminNotesRef}
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
                 placeholder="z.B. Patient ist leicht desorientiert, sturzgefährdet..."
-                className="w-full min-h-[60px] bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
+                className="w-full min-h-[60px] max-h-[260px] overflow-y-auto bg-slate-50/50 border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500 resize-none text-slate-800"
               />
               <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
                 <div className="flex items-center gap-2">

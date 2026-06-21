@@ -85,6 +85,20 @@ export default function PatientsTab({
 
   // Audio / Speech Recognition state
   const recognitionRef = useRef<any | null>(null);
+  const editNotesRef = useRef<HTMLTextAreaElement>(null);
+
+  const resizeVoiceTextarea = (textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    const maxHeight = 300;
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    resizeVoiceTextarea(editNotesRef.current);
+  }, [editNotes, selectedPatientId]);
 
   // Sync edits when patient selection shifts
   useEffect(() => {
@@ -186,38 +200,81 @@ export default function PatientsTab({
     }
   };
 
-  // Trigger Gemini refinement of rough notes
-  const handleRefineWithGemini = async () => {
-    if (!editNotes.trim()) {
-      setAlertMsg("Bitte schreiben oder diktieren Sie zuerst einen Text, den Sie präzisieren möchten.");
-      return;
+  const getPatientDemoDictation = () => {
+    const diagnosis = editDiagnoses.toLowerCase();
+
+    if (selectedP?.id === "schmidt" || diagnosis.includes("abdominal") || diagnosis.includes("append")) {
+      return "Pat. mit progredientem rechtsseitigem Unterbauchschmerz seit ca. 6 Std., NRS 7/10, Übelkeit ohne Erbrechen. Druck- und Loslassschmerz im rechten Unterbauch positiv, subfebril. V.a. akute Appendizitis, Sono und Labor veranlasst.";
     }
 
+    if (selectedP?.id === "weber" || diagnosis.includes("schwindel")) {
+      return "Pat. mit rezidivierendem lagerungsabhängigem Drehschwindel seit dem Morgen, Dix-Hallpike rechts positiv, kein fokal-neurologisches Defizit, keine Aphasie, keine Paresen. V.a. benignen paroxysmalen Lagerungsschwindel.";
+    }
+
+    return "Pat. mit akutem retrosternalem Thoraxdruck seit ca. 30 Min., Ausstrahlung in linken Arm, kaltschweißig und leicht dyspnoeisch. Kardiovaskuläre Risikofaktoren bekannt. V.a. akutes Koronarsyndrom, EKG und Troponin priorisiert.";
+  };
+
+  const buildDemoRefinedPatientNote = (rawText: string) => {
+    const diagnosis = editDiagnoses.toLowerCase();
+
+    if (selectedP?.id === "schmidt" || diagnosis.includes("abdominal") || diagnosis.includes("append")) {
+      return [
+        "Strukturierter Befundentwurf:",
+        "- Arbeitsdiagnose: V.a. akute Appendizitis bei rechtsseitigem Unterbauchschmerz.",
+        `- Triage: ${editPrio}, Liegeplatz: ${editBed || "noch offen"}.`,
+        "- Anamnese: progrediente Schmerzen seit mehreren Stunden, Übelkeit, kein Erbrechen.",
+        "- Klinischer Eindruck: Druck- und Loslassschmerz rechts positiv, subfebrile Temperatur.",
+        "- Plan: Labor inkl. Entzündungswerte, Sono Abdomen, nüchtern belassen, Analgesie nach Rücksprache.",
+        "",
+        `Ausgangsdiktat: ${rawText}`
+      ].join("\n");
+    }
+
+    if (selectedP?.id === "weber" || diagnosis.includes("schwindel")) {
+      return [
+        "Strukturierter Befundentwurf:",
+        "- Arbeitsdiagnose: V.a. benignen paroxysmalen Lagerungsschwindel.",
+        `- Triage: ${editPrio}, Liegeplatz: ${editBed || "noch offen"}.`,
+        "- Anamnese: lagerungsabhängiger Drehschwindel seit dem Morgen.",
+        "- Klinischer Eindruck: Dix-Hallpike rechts positiv, aktuell kein fokal-neurologisches Defizit.",
+        "- Plan: Sturzprophylaxe, Epley-Manöver, neurologische Warnzeichen weiter beobachten.",
+        "",
+        `Ausgangsdiktat: ${rawText}`
+      ].join("\n");
+    }
+
+    return [
+      "Strukturierter Befundentwurf:",
+      "- Arbeitsdiagnose: V.a. akutes Koronarsyndrom bei retrosternalem Thoraxdruck.",
+      `- Triage: ${editPrio}, Liegeplatz: ${editBed || "noch offen"}.`,
+      "- Anamnese: akuter Thoraxdruck mit Ausstrahlung in den linken Arm und Dyspnoe.",
+      "- Klinischer Eindruck: kaltschweißig, kardiale Risikofaktoren bekannt.",
+      "- Plan: EKG, Troponin, Monitoring und ärztliche Reevaluation priorisiert.",
+      "",
+      `Ausgangsdiktat: ${rawText}`
+    ].join("\n");
+  };
+
+  const applyDemoDictation = () => {
+    setEditNotes(getPatientDemoDictation());
+    setSaveStatus("idle");
+    setAlertMsg("Patientenspezifisches Demo-Diktat eingefügt. Jetzt kann die KI-Verbesserung die Notiz strukturieren.");
+  };
+
+  // Trigger Gemini refinement of rough notes
+  const handleRefineWithGemini = async () => {
     setRefineLoading(true);
     setAlertMsg(null);
 
     try {
-      const response = await fetch("/api/refine", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          text: editNotes, 
-          context: `Notaufnahme Befundung - Fall ${editDiagnoses || "Unklar"}` 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Fehler beim Verfeinern auf dem Server");
-      }
-
-      const data = await response.json();
-      if (data.text) {
-        setEditNotes(data.text);
-        setSaveStatus("idle");
-      }
+      const sourceText = editNotes.trim() || getPatientDemoDictation();
+      await new Promise(resolve => setTimeout(resolve, 650));
+      setEditNotes(buildDemoRefinedPatientNote(sourceText));
+      setSaveStatus("idle");
     } catch (error: any) {
-      console.error(error);
-      setAlertMsg("Fehler beim Veredeln: " + error.message);
+      console.warn("Using local demo patient-note fallback:", error);
+      setEditNotes(buildDemoRefinedPatientNote(editNotes.trim() || getPatientDemoDictation()));
+      setSaveStatus("idle");
     } finally {
       setRefineLoading(false);
     }
@@ -258,7 +315,7 @@ export default function PatientsTab({
       {!selectedP ? (
         <div className="space-y-3">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center justify-between">
-            <span>Aktive Fälle — Station A ({patients.length})</span>
+            <span>Aktive Fälle - Station A ({patients.length})</span>
             <span className="text-[10px] lowercase text-slate-500 font-mono">Klicken Sie zum Öffnen der Befunde</span>
           </div>
 
@@ -497,10 +554,11 @@ export default function PatientsTab({
                 </div>
 
                 <textarea
+                  ref={editNotesRef}
                   value={editNotes}
                   onChange={(e) => { setEditNotes(e.target.value); setSaveStatus("idle"); }}
                   placeholder="Klicken Sie auf Spracheingabe und sprechen Sie, oder schreiben Sie ungeordnet die Fakten des Patienten..."
-                  className="w-full text-sm bg-slate-50/30 border border-slate-200 rounded-lg p-3 outline-none focus:border-indigo-500 min-h-[110px] leading-relaxed resize-none text-slate-800"
+                  className="w-full text-sm bg-slate-50/30 border border-slate-200 rounded-lg p-3 outline-none focus:border-indigo-500 min-h-[110px] max-h-[300px] overflow-y-auto leading-relaxed resize-none text-slate-800"
                 />
 
                 {voiceStatus && (
@@ -522,6 +580,15 @@ export default function PatientsTab({
                   >
                     {isRecording ? <MicOff className="w-4 h-4 text-rose-600" /> : <Mic className="w-4 h-4 text-indigo-500" />}
                     {isRecording ? "Diktat stoppen" : "Spracheingabe starten"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={applyDemoDictation}
+                    className="px-3 py-2 rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold cursor-pointer transition flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                    Beispiel-Diktat
                   </button>
 
                   <button

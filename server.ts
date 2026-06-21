@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import os from "os";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 
@@ -24,7 +25,7 @@ function getGeminiClient(): GoogleGenAI {
 }
 
 // CENTRALIZED METRICS & COLLABORATION ANALYTICS ENGINE
-const STATS_FILE = path.join(process.cwd(), "clicks.json");
+const STATS_FILE = path.join(os.tmpdir(), "medilog_entrepreneurship_clicks.json");
 
 interface KpiStats {
   total: number;
@@ -68,7 +69,7 @@ function writeStats(stats: KpiStats) {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = 3001;
 
   // Set payload size limits for image uploads
   app.use(express.json({ limit: "20mb" }));
