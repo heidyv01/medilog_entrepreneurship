@@ -69,7 +69,7 @@ function writeStats(stats: KpiStats) {
 
 async function startServer() {
   const app = express();
-  const PORT = 3001;
+  const PORT = 3000;
 
   // Set payload size limits for image uploads
   app.use(express.json({ limit: "20mb" }));
